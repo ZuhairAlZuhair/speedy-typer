@@ -1,20 +1,280 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Speedy Typer</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speedy Typer 2.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #text-to-type-container, #text-input {
+             font-family: 'Roboto Mono', monospace;
+        }
+        .correct {
+            color: #4ade80; /* green-400 */
+        }
+        .incorrect {
+            background-color: #fecaca; /* red-200 */
+            color: #ef4444; /* red-500 */
+            text-decoration: underline;
+            border-radius: 2px;
+        }
+        .cursor {
+            animation: blink 1s step-end infinite;
+            border-left: 2px solid;
+        }
+        @keyframes blink {
+            from, to {
+                border-left-color: transparent;
+            }
+            50% {
+                border-left-color: #3b82f6; /* blue-500 */
+            }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
-<body>
-  <div class="container">
-    <h1>Speedy Typer</h1>
-    <p id="text-to-type">Loading text...</p>
-    <textarea id="user-input" placeholder="Start typing here..." disabled></textarea>
-    <button id="start-button">Start Game</button>
-    <p id="result"></p>
-  </div>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 flex items-center justify-center min-h-screen p-4 transition-colors duration-300">
+    <div class="w-full max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-2xl rounded-2xl p-6 md:p-8">
+        <div class="text-center mb-6">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white">Speedy Typer 2.0</h1>
+            <p class="text-gray-500 dark:text-gray-400 mt-2">Now with difficulty levels and high scores!</p>
+        </div>
 
-  <script src="script.js"></script>
+        <!-- Difficulty Selector -->
+        <div class="flex justify-center items-center gap-4 mb-6">
+            <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Difficulty:</label>
+            <div id="difficulty-selector" class="flex gap-2 rounded-lg bg-gray-200 dark:bg-gray-700 p-1">
+                <button data-difficulty="easy" class="difficulty-btn bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow rounded-md px-4 py-1 text-sm font-semibold">Easy</button>
+                <button data-difficulty="medium" class="difficulty-btn px-4 py-1 text-sm font-semibold">Medium</button>
+                <button data-difficulty="hard" class="difficulty-btn px-4 py-1 text-sm font-semibold">Hard</button>
+            </div>
+        </div>
+
+        <!-- Stats Display -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-6 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+            <div>
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Time</p>
+                <p id="timer" class="text-2xl font-semibold text-gray-900 dark:text-white">0s</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">WPM</p>
+                <p id="wpm" class="text-2xl font-semibold text-gray-900 dark:text-white">0</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Accuracy</p>
+                <p id="accuracy" class="text-2xl font-semibold text-gray-900 dark:text-white">100%</p>
+            </div>
+             <div>
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">High Score</p>
+                <p id="high-score" class="text-2xl font-semibold text-gray-900 dark:text-white">0</p>
+            </div>
+        </div>
+
+        <!-- Text to Type Display -->
+        <div id="text-to-type-container" class="text-xl md:text-2xl leading-relaxed tracking-wide bg-gray-100 dark:bg-gray-900 p-6 rounded-lg mb-4 select-none" tabindex="0">
+            <p id="text-to-type">Select a difficulty and click 'Start Game' to begin.</p>
+        </div>
+
+        <!-- Hidden Text Input -->
+        <textarea id="text-input" class="absolute -left-full" autofocus></textarea>
+
+        <!-- Restart Button -->
+        <div class="text-center mt-6">
+            <button id="restart-button" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 transition-transform transform hover:scale-105">
+                Start Game
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const textToTypeContainer = document.getElementById('text-to-type-container');
+        const textToTypeEl = document.getElementById('text-to-type');
+        const textInput = document.getElementById('text-input');
+        const timerEl = document.getElementById('timer');
+        const wpmEl = document.getElementById('wpm');
+        const accuracyEl = document.getElementById('accuracy');
+        const restartButton = document.getElementById('restart-button');
+        const difficultySelector = document.getElementById('difficulty-selector');
+        const highScoreEl = document.getElementById('high-score');
+
+        // Text Content for Different Difficulties
+        const texts = {
+            easy: [
+                "The quick brown fox jumps over the lazy dog.",
+                "A journey of a thousand miles begins with a single step.",
+                "The early bird catches the worm.",
+                "Actions speak louder than words.",
+                "Never underestimate the power of a good book."
+            ],
+            medium: [
+                "To be, or not to be, that is the question.",
+                "The only thing we have to fear is fear itself.",
+                "In the middle of difficulty lies opportunity.",
+                "Technology is a useful servant but a dangerous master.",
+                "Success is not final, failure is not fatal: it is the courage to continue that counts."
+            ],
+            hard: [
+                "The juxtaposition of their divergent philosophies created a palpable, albeit unspoken, tension in the room.",
+                "Notwithstanding the inclement weather, the indefatigable mountaineers persevered with their treacherous ascent.",
+                "I'm not a pheasant plucker, I'm a pheasant plucker's son. I'm only plucking pheasants 'til the pheasant plucker comes.",
+                "Quantum mechanics, with its esoteric principles of superposition and entanglement, fundamentally challenges our classical intuition about reality.",
+                "The archetypal antihero, a character fraught with moral ambiguity, often elicits a complex, dichotomous response from the audience."
+            ]
+        };
+
+        // Game State
+        let gameStarted = false;
+        let startTime;
+        let timerInterval;
+        let currentSentence = '';
+        let currentDifficulty = 'easy';
+        let highScores = JSON.parse(localStorage.getItem('speedyTyperHighScores')) || { easy: 0, medium: 0, hard: 0 };
+
+        // --- Event Listeners ---
+        window.addEventListener('load', () => {
+            updateHighScoreDisplay();
+        });
+
+        restartButton.addEventListener('click', initializeGame);
+
+        textToTypeContainer.addEventListener('click', () => {
+            if (gameStarted) textInput.focus();
+        });
+
+        textInput.addEventListener('input', handleTyping);
+
+        difficultySelector.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                currentDifficulty = e.target.dataset.difficulty;
+                document.querySelectorAll('.difficulty-btn').forEach(btn => {
+                    btn.classList.remove('bg-white', 'dark:bg-gray-800', 'text-blue-600', 'dark:text-blue-400', 'shadow');
+                });
+                e.target.classList.add('bg-white', 'dark:bg-gray-800', 'text-blue-600', 'dark:text-blue-400', 'shadow');
+                updateHighScoreDisplay();
+                initializeGame();
+            }
+        });
+
+        // --- Game Logic ---
+
+        function initializeGame() {
+            gameStarted = true;
+            startTime = null;
+            clearInterval(timerInterval);
+
+            timerEl.textContent = '0s';
+            wpmEl.textContent = '0';
+            accuracyEl.textContent = '100%';
+            restartButton.textContent = 'Restart Game';
+            textInput.value = '';
+            
+            const availableSentences = texts[currentDifficulty];
+            currentSentence = availableSentences[Math.floor(Math.random() * availableSentences.length)];
+            
+            renderTextToType();
+            textInput.focus();
+            textToTypeEl.classList.add('fade-in');
+            setTimeout(() => textToTypeEl.classList.remove('fade-in'), 500);
+        }
+
+        function renderTextToType() {
+            const typedText = textInput.value;
+            let html = '';
+            
+            currentSentence.split('').forEach((char, index) => {
+                if (index < typedText.length) {
+                    html += `<span class="${typedText[index] === char ? 'correct' : 'incorrect'}">${char}</span>`;
+                } else if (index === typedText.length) {
+                    html += `<span class="cursor">${char}</span>`;
+                } else {
+                    html += `<span>${char}</span>`;
+                }
+            });
+            textToTypeEl.innerHTML = html;
+        }
+
+        function handleTyping() {
+            if (!gameStarted) return;
+
+            if (!startTime) {
+                startTime = new Date();
+                timerInterval = setInterval(updateTimerAndMetrics, 1000);
+            }
+            
+            renderTextToType();
+            updateMetrics();
+
+            if (textInput.value.length === currentSentence.length) {
+                endGame();
+            }
+        }
+        
+        function updateTimerAndMetrics() {
+            updateTimer();
+            updateMetrics();
+        }
+
+        function updateTimer() {
+            if (!startTime) return;
+            const elapsedTime = Math.floor((new Date() - startTime) / 1000);
+            timerEl.textContent = `${elapsedTime}s`;
+        }
+
+        function updateMetrics() {
+            if (!startTime) return;
+
+            const elapsedTimeInMinutes = (new Date() - startTime) / 1000 / 60;
+            if (elapsedTimeInMinutes === 0) return;
+
+            const typedText = textInput.value;
+            const charactersTyped = typedText.length;
+            const wpm = Math.round((charactersTyped / 5) / elapsedTimeInMinutes);
+            wpmEl.textContent = isNaN(wpm) ? 0 : wpm;
+
+            let correctChars = 0;
+            typedText.split('').forEach((char, index) => {
+                if (char === currentSentence[index]) {
+                    correctChars++;
+                }
+            });
+            const accuracy = charactersTyped > 0 ? Math.round((correctChars / charactersTyped) * 100) : 100;
+            accuracyEl.textContent = `${accuracy}%`;
+        }
+        
+        function updateHighScoreDisplay() {
+            highScoreEl.textContent = highScores[currentDifficulty] || 0;
+        }
+
+        function saveHighScore(wpm) {
+            if (wpm > highScores[currentDifficulty]) {
+                highScores[currentDifficulty] = wpm;
+                localStorage.setItem('speedyTyperHighScores', JSON.stringify(highScores));
+                updateHighScoreDisplay();
+            }
+        }
+
+        function endGame() {
+            gameStarted = false;
+            clearInterval(timerInterval);
+            updateMetrics(); // Final update
+            
+            const finalWPM = parseInt(wpmEl.textContent);
+            saveHighScore(finalWPM);
+
+            textInput.blur();
+            restartButton.focus();
+        }
+    </script>
 </body>
 </html>
